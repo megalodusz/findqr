@@ -136,7 +136,7 @@
 </head>
 <body>
 
-    <h1>Kalandtúra Keretrendszer</h1>
+    <h1>Kollégiumi Kalandtúra</h1>
     
     <div class="progress-container">
         <div>Beolvasott pontok: <span id="progress-text">0 / 12</span></div>
@@ -151,13 +151,10 @@
 
     <!-- Eredményösszesítő Tanári Panel -->
     <div class="summary-box">
-        <h3>📊 Tanári Ellenőrző Panel</h3>
+        <h3>📊 Ellenőrző Panel</h3>
         <p><strong>Helyesen megoldott feladatok száma:</strong> <span id="teacher-score">0</span> / 12</p>
         <div id="teacher-summary-zone">
-            <i style="color: #7f8c8d; font-size: 0.9rem; display: block; line-height: 1.4;">
-                A részletes feladat-összesítés és a helyes válaszok listája automatikusan itt fog megjelenni, amint a diák mind a 12 kódot beszkennelte (a kihagyott feladatok is beleszámítanak a szkennelésbe).
-            </i>
-        </div>
+            /div>
     </div>
 
     <!-- Felugró ablak (Modal) -->
@@ -352,7 +349,7 @@
 
             // HA ELÉRTÉK A 12 BESZKENNELT KÓDOT -> Megjelenik a részletes tanári kiértékelés
             if (scannedCount === totalTasks) {
-                let html = `<h4>🎉 Küldetés teljesítve! Részletes eredmények a tanárnak:</h4><ul class="summary-list">`;
+                let html = `<h4>🎉 Küldetés teljesítve! Részletes eredmények:</h4><ul class="summary-list">`;
                 
                 for (let i = 1; i <= totalTasks; i++) {
                     const task = gameState[i];
