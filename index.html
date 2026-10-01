@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Kódos Iskolai Projekt</title>
+    <!-- QR kód olvasó könyvtár (Egyszer kell betölteni, utána offline is fut az oldalon) -->
+    <script src="https://unpkg.com/html-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .progress-container {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1px);
+            grid-auto-rows: minmax(60px, auto);
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        /* Reszponzív rács */
+        @media(max-width: 400px) {
+            .grid { grid-template-columns: repeat(3, 70px); }
+        }
+        @media(min-width: 401px) {
+            .grid { grid-template-columns: repeat(4, 70px); }
+        }
+        .badge {
+            width: 100%;
+            height: 60px;
+            background-color: #e0e0e0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            transition: all 0.3s ease;
+        }
+        .badge.completed {
+            background-color: #2ecc71;
+            color: white;
+            box-shadow: 0 4px 10px rgba(46, 204, 113, 0.4);
+            transform: scale(1.05);
+        }
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        /* Modal (Felugró ablak) stílusok */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 400px;
+            width: 85%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            animation: popIn 0.3s ease;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .modal h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .modal p {
+            font-size: 1.1rem;
+            line-height: 1.5;
+            color: #555;
+            margin: 20px 0;
+        }
+        .close-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .close-btn:hover {
+            background-color: #2980b9;
+        }
+        .success-banner {
+            color: #2ecc71;
+            font-weight: bold;
+            font-size: 1.3rem;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Kalandtúra Szkennelés</h1>
+    
+    <div class="progress-container">
+        <div>Teljesített feladatok: <span id="progress-text">0 / 12</span></div>
+        <div class="success-banner" id="win-message">🎉 Gratulálunk! Minden kódot megtaláltatok! 🎉</div>
+        <div class="grid" id="badge-grid">
+            <!-- A 12 gomb/jelvény dinamikusan generálódik -->
+        </div>
+    </div>
+
+    <!-- Ide ágyazódik be a kamera képe -->
+    <div id="reader"></div>
+
+    <!-- Felugró ablak (Modal) -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h2 id="modalTitle">Új Feladat!</h2>
+            <p id="modalContent">Ide jön a feladat szövege...</p>
+            <button class="close-btn" onclick="closeModal()">Bezárás</button>
+        </div>
+    </div>
+
+    <script>
+        // Állapot mentése a memóriában (frissítéskor törlődik, így újra játszható, 
+        // de ha azt szeretnéd, hogy ne vesszen el, átírható localStorage-ra)
+        const totalTasks = 12;
+        let foundTasks = new Set();
+
+        // Rács legenerálása a felületen
+        const grid = document.getElementById('badge-grid');
+        for (let i = 1; i <= totalTasks; i++) {
+            const badge = document.createElement('div');
+            badge.className = 'badge';
+            badge.id = `badge-${i}`;
+            badge.innerText = i;
+            grid.appendChild(badge);
+        }
+
+        // QR kód beolvasás sikeres lefutása
+        function onScanSuccess(decodedText, decodedResult) {
+            // Ellenőrizzük a formátumot: TASK_X:szöveg
+            if (decodedText.startsWith("TASK_")) {
+                try {
+                    const parts = decodedText.split(":");
+                    const taskInfo = parts[0].split("_");
+                    const taskNumber = parseInt(taskInfo[1]);
+                    const taskText = parts.slice(1).join(":"); // ha a szövegben is van kettőspont
+
+                    if (taskNumber >= 1 && taskNumber <= totalTasks) {
+                        
+                        // Jelöljük megtaláltnak
+                        foundTasks.add(taskNumber);
+                        
+                        // UI frissítése
+                        document.getElementById(`badge-${taskNumber}`).classList.add('completed');
+                        document.getElementById('progress-text').innerText = `${foundTasks.size} / ${totalTasks}`;
+                        
+                        // Felugró ablak megnyitása a szöveggel
+                        openModal(taskNumber, taskText);
+
+                        // Ha mind megvan
+                        if (foundTasks.size === totalTasks) {
+                            document.getElementById('win-message').style.display = 'block';
+                        }
+                    }
+                } catch (e) {
+                    console.error("Hibás QR kód formátum", e);
+                }
+            }
+        }
+
+        // Kamera hiba esetén (folyamatosan hívódik ha nincs kód a képen, üresen hagyjuk)
+        function onScanFailure(error) {
+            // ssshh... csendben keresi a kódot
+        }
+
+        // Beolvasó indítása
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { fps: 10, qrbox: {width: 250, height: 250} },
+            /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+        // Modal kezelő függvények
+        function openModal(number, text) {
+            document.getElementById('modalTitle').innerText = `${number}. számú állomás`;
+            document.getElementById('modalContent').innerText = text;
+            document.getElementById('modalOverlay').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
