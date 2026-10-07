@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Kódos Kalandtúra</title>
+    <title>Kollégiumi Kalandtúra</title>
     <!-- QR kód olvasó könyvtár (Offline működéshez az első betöltés után) -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
@@ -81,6 +81,30 @@
         .scan-trigger-btn:active { transform: scale(0.98); }
         .scan-trigger-btn:hover { background-color: #c0392b; }
 
+        /* VÉGSŐ ÜZENET STÍLUSA A GOMB HELYÉN */
+        .end-game-message {
+            display: none;
+            width: 100%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            animation: popIn 0.5s ease;
+        }
+        .end-message-success {
+            background-color: #2ecc71;
+            color: white;
+        }
+        .end-message-incomplete {
+            background-color: #34495e;
+            color: white;
+        }
+
         #reader {
             width: 100%;
             max-width: 500px;
@@ -137,6 +161,9 @@
 
     <!-- NAGY SCANNER GOMB -->
     <button class="scan-trigger-btn" id="start-btn" onclick="startScanner()">📷 QR KÓD BEOLVASÁSA</button>
+
+    <!-- VÉGSŐ ÜZENET MEGJELENÍTŐ ZÓNA -->
+    <div id="endGameZone" class="end-game-message"></div>
 
     <!-- Beágyazott kamera rész -->
     <div id="reader"></div>
@@ -284,14 +311,15 @@
 
                 updateProgress();
 
-                // AUTOMATIKUS BEZÁRÁS: 500ms után magától bezáródik a modal ablak
+                // AUTOMATIKUS BEZÁRÁS: 500ms után magától bezáródik a felugró ablak
                 setTimeout(() => {
                     closeModal();
+                    checkGameEnd(); // Bezárás után ellenőrizzük, hogy vége van-e a játéknak
                 }, 500);
 
             } else {
                 document.getElementById('feedbackMsg').className = 'feedback wrong';
-                document.getElementById('feedbackMsg').innerText = '❌ Nem megfelelő válasz! Próbáljátok újra.';
+                document.getElementById('feedbackMsg').innerText = '❌ Nem megfelelő válasz! Próbáld újra!';
             }
         }
 
@@ -311,6 +339,7 @@
 
             closeModal();
             updateProgress();
+            checkGameEnd();
         }
 
         function closeModal() {
@@ -324,6 +353,42 @@
                 if (gameState[i].scanned) scannedCount++;
             }
             document.getElementById('progress-text').innerText = `${scannedCount} / ${totalTasks}`;
+        }
+
+        // Játék végének ellenőrzése és a megfelelő üzenet kiírása a gomb helyén
+        function checkGameEnd() {
+            let completedCount = 0;
+            let allCorrect = true;
+
+            for (let i = 1; i <= totalTasks; i++) {
+                if (gameState[i].status === 'correct' || gameState[i].status === 'skipped') {
+                    completedCount++;
+                }
+                if (gameState[i].status !== 'correct') {
+                    allCorrect = false;
+                }
+            }
+
+            // Ha mind a 12 állomás lezárult valamilyen formában
+            if (completedCount === totalTasks) {
+                const startBtn = document.getElementById('start-btn');
+                const endGameZone = document.getElementById('endGameZone');
+
+                // Eltüntetjük a beolvasó gombot végleg
+                startBtn.style.display = 'none';
+
+                // Kiértékeljük a két lehetőséget
+                if (allCorrect) {
+                    endGameZone.className = "end-game-message end-message-success";
+                    endGameZone.innerText = "Gratulálok, szép munka!";
+                } else {
+                    endGameZone.className = "end-game-message end-message-incomplete";
+                    endGameZone.innerText = "Ügyes volt. Legközelebb még jobb lesz!";
+                }
+
+                // Megjelenítjük az üzenetet dobozt
+                endGameZone.style.display = "block";
+            }
         }
 </script>
 </body>
