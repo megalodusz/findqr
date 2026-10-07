@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kollégiumi Kalandtúra</title>
+    <title>QR Kódos Kalandtúra</title>
     <!-- QR kód olvasó könyvtár (Offline működéshez az első betöltés után) -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
@@ -202,6 +202,15 @@
 
         let currentActiveTask = null;
 
+        // ÚJRATÖLTÉS ÉS LAPELHAGYÁS ELLENI VÉDELEM
+        // Ha a diák frissíteni akarja az oldalt vagy véletlenül bezárná, a böngésző rákérdez a megerősítésre
+        window.addEventListener('beforeunload', function (e) {
+            // Megakadályozzuk az azonnali bezárást/frissítést
+            e.preventDefault();
+            // A modern böngészők biztonsági okokból egy szabványos szöveget mutatnak majd (nem a sajátunkat), de a megerősítő ablak garantáltan felugrik
+            e.returnValue = 'Biztosan elhagyod az oldalt? Az eddigi játékmenet és az összegyűjtött pontok elvesznek!';
+        });
+
         // UI rács kirajzolása dinamikusan
         const grid = document.getElementById('badge-grid');
         for (let i = 1; i <= totalTasks; i++) {
@@ -307,7 +316,7 @@
                 badge.innerHTML = `${rewardedLetter}<span id="status-${currentActiveTask}">OK</span>`;
 
                 document.getElementById('feedbackMsg').className = 'feedback good';
-                document.getElementById('feedbackMsg').innerText = '🎉 Zseniális! A válasz helyes!';
+                document.getElementById('feedbackMsg').innerText = '🎉 A válasz helyes!';
 
                 updateProgress();
 
@@ -329,7 +338,7 @@
             task.status = 'skipped';
 
             if (!document.getElementById('answerInput').value.trim()) {
-                task.studentAnswer = "[Nem adott meg választ]";
+                task.studentAnswer = " ";
             } else {
                 task.studentAnswer = document.getElementById('answerInput').value;
             }
