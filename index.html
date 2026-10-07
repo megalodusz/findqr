@@ -108,19 +108,19 @@
             text-align: center; animation: popIn 0.3s ease;
         }
         @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        
+
         .answer-input {
             width: 90%; padding: 12px; margin: 15px 0;
             border: 2px solid #bdc3c7; border-radius: 8px; font-size: 1rem; text-align: center;
         }
         .answer-input:focus { border-color: #3498db; outline: none; }
-        
+
         .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
         .btn { padding: 14px; border: none; border-radius: 25px; font-size: 1rem; font-weight: bold; cursor: pointer; width: 100%; }
         .btn-submit { background-color: #2ecc71; color: white; }
         .btn-skip { background-color: #e67e22; color: white; }
         .btn-close { background-color: #3498db; color: white; }
-        
+
         .feedback { font-weight: bold; margin-top: 10px; font-size: 1.1rem; }
         .feedback.wrong { color: #e74c3c; }
         .feedback.good { color: #2ecc71; }
@@ -129,7 +129,7 @@
 <body>
 
     <h1>Kollégiumi Kalandtúra</h1>
-    
+
     <div class="progress-container">
         <div>Beolvasott pontok: <span id="progress-text">0 / 12</span></div>
         <div class="grid" id="badge-grid"></div>
@@ -146,7 +146,7 @@
         <div class="modal">
             <h2 id="modalTitle">X. Állomás</h2>
             <p id="modalContent">Feladat szövege...</p>
-            
+
             <div id="modal-interactive-zone">
                 <input type="text" class="answer-input" id="answerInput" placeholder="Írd ide a választ...">
                 <div class="feedback" id="feedbackMsg"></div>
@@ -162,187 +162,169 @@
     </div>
 
 <script>
+        // "Menj a klubba!" szóközök nélkül pontosan 12 karakter (M, e, n, j, a, k, l, u, b, b, a, !)
+        const secretMessage = "Menjaklubba!";
         const totalTasks = 12;
         let html5QrCode;
-        
-        // A titkos felirat betűi sorrendben a 12 állomáshoz
-        const secretLetters = {
-            1: "M", 2: "e", 3: "n", 4: "j", 5: "a", 6: "k", 
-            7: "l", 8: "u", 9: "b", 10: "b", 11: "a", 12: "!"
-        };
 
-        // Globális játékállapot (csak a státuszt és a QR-ból beolvasott adatokat menti)
-        let gameState = JSON.parse(localStorage.getItem('kolesz_kaland_dynamic_state')) || {};
-        
-        if (Object.keys(gameState).length === 0) {
-            for(let i = 1; i <= totalTasks; i++) {
-                gameState[i] = { scanned: false, status: null, question: '', correctAnswer: '' };
-            }
+        // Globális adatbázis a diák előrehaladásáról
+        let gameState = {};
+        for(let i = 1; i <= totalTasks; i++) {
+            gameState[i] = { scanned: false, status: null, question: '', correctAnswer: '', studentAnswer: '' };
         }
 
         let currentActiveTask = null;
 
-        // UI rács kirajzolása és frissítése
+        // UI rács kirajzolása dinamikusan
         const grid = document.getElementById('badge-grid');
-        function renderGrid() {
-            grid.innerHTML = '';
-            for (let i = 1; i <= totalTasks; i++) {
-                const badge = document.createElement('div');
-                badge.className = 'badge';
-                badge.id = `badge-${i}`;
-                
-                if (gameState[i].status === 'correct') {
-                    badge.classList.add('correct');
-                    badge.innerHTML = `${secretLetters[i]}<span>${i}. pont</span>`;
-                } else if (gameState[i].status === 'skipped') {
-                    badge.classList.add('skipped');
-                    badge.innerHTML = `X<span>${i}. pont</span>`;
-                } else if (gameState[i].scanned) {
-                    badge.classList.add('scanned');
-                    badge.innerHTML = `${i}<span>olvasva</span>`;
-                } else {
-                    badge.innerHTML = `${i}<span>-</span>`;
-                }
-                grid.appendChild(badge);
-            }
-            updateProgressText();
-        }
-
-        function updateProgressText() {
-            let completed = 0;
-            for (let i = 1; i <= totalTasks; i++) {
-                if (gameState[i].status === 'correct' || gameState[i].status === 'skipped') {
-                    completed++;
-                }
-            }
-            document.getElementById('progress-text').textContent = `${completed} / ${totalTasks}`;
+        for (let i = 1; i <= totalTasks; i++) {
+            const badge = document.createElement('div');
+            badge.className = 'badge';
+            badge.id = `badge-${i}`;
+            badge.innerHTML = `${i}<span id="status-${i}">-</span>`;
+            grid.appendChild(badge);
         }
 
         // Kamera indítása – KIZÁRÓLAG hátlapi kamerával
         function startScanner() {
             document.getElementById('reader').style.display = 'block';
-            document.getElementById('start-btn').textContent = "📷 KAMERA LEÁLLÍTÁSA";
-            document.getElementById('start-btn').style.backgroundColor = "#7f8c8d";
-            document.getElementById('start-btn').onclick = stopScanner;
+            document.getElementById('start-btn').style.display = 'none';
 
             html5QrCode = new Html5Qrcode("reader");
-            
+
             html5QrCode.start(
                 { facingMode: "environment" }, 
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 onScanSuccess
             ).catch(err => {
-                alert("Nem sikerült elindítani a kamerát: " + err);
-                stopScanner();
+                alert("Nem sikerült elérni a hátlapi kamerát! Kérlek engedélyezd a böngésző beállításaiban.");
+                document.getElementById('reader').style.display = 'none';
+                document.getElementById('start-btn').style.display = 'block';
             });
         }
 
-        function stopScanner() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    html5QrCode = null;
-                    resetScannerUI();
-                }).catch(() => {
-                    resetScannerUI();
-                });
-            } else {
-                resetScannerUI();
-            }
-        }
+        // QR kód sikeres beolvasása
+        function onScanSuccess(decodedText) {
+            if (decodedText.startsWith("TASK_") && decodedText.includes("|")) {
+                try {
+                    const tokens = decodedText.split("|");
+                    const taskNum = parseInt(tokens[0].split("_")[1]);
+                    const question = tokens[1];
+                    const answer = tokens[2];
 
-        function resetScannerUI() {
-            document.getElementById('reader').style.display = 'none';
-            document.getElementById('start-btn').textContent = "📷 QR KÓD BEOLVASÁSA";
-            document.getElementById('start-btn').style.backgroundColor = "#e74c3c";
-            document.getElementById('start-btn').onclick = startScanner;
-        }
+                    if (taskNum >= 1 && taskNum <= totalTasks) {
+                        html5QrCode.stop().then(() => {
+                            document.getElementById('reader').style.display = 'none';
+                            document.getElementById('start-btn').style.display = 'block';
+                        });
 
-        // Sikeres QR beolvasás kezelése (Azonnali kameraleállítással)
-        function onScanSuccess(decodedText, decodedResult) {
-            // AUTOMATIKUSAN KIKAPCSOLJA A KAMERÁT BEOLVASÁSKOR
-            stopScanner(); 
-            
-            try {
-                const url = new URL(decodedText);
-                const stationId = parseInt(url.searchParams.get('station'));
-                const question = url.searchParams.get('q');
-                const answer = url.searchParams.get('a');
-                
-                if (stationId && stationId >= 1 && stationId <= totalTasks && question && answer) {
-                    // Adatok mentése az állapotba a QR-kódból
-                    gameState[stationId].scanned = true;
-                    gameState[stationId].question = decodeURIComponent(question);
-                    gameState[stationId].correctAnswer = decodeURIComponent(answer);
-                    
-                    saveState();
-                    renderGrid();
-                    openModal(stationId);
-                } else {
-                    alert("A QR-kód nem tartalmaz minden szükséges adatot (station, q, a)!");
+                        currentActiveTask = taskNum;
+
+                        if (gameState[taskNum].status !== 'correct') {
+                            gameState[taskNum].scanned = true;
+                            gameState[taskNum].question = question;
+                            gameState[taskNum].correctAnswer = answer;
+
+                            if(gameState[taskNum].status !== 'skipped') {
+                                document.getElementById(`badge-${taskNum}`).className = 'badge scanned';
+                                document.getElementById(`status-${taskNum}`).innerText = 'Megnyitva';
+                            }
+                        }
+
+                        openModal(taskNum);
+                    }
+                } catch (e) {
+                    alert("A QR kód szerkezete nem megfelelő a játékhoz!");
                 }
-            } catch (e) {
-                alert("A beolvasott kód nem egy érvényes feladat link!");
             }
         }
 
-        // Felugró ablak kezelése
-        function openModal(stationId) {
-            currentActiveTask = stationId;
-            const taskData = gameState[stationId];
-            
-            document.getElementById('modalTitle').textContent = `${stationId}. Állomás`;
-            document.getElementById('modalContent').textContent = taskData.question;
-            document.getElementById('answerInput').value = '';
-            document.getElementById('feedbackMsg').textContent = '';
-            document.getElementById('feedbackMsg').className = 'feedback';
-            
-            document.getElementById('modalOverlay').style.display = 'flex';
-        }
+        // Felugró ablak megnyitása
+        function openModal(num) {
+            const task = gameState[num];
+            document.getElementById('modalTitle').innerText = `${num}. állomás feladata`;
+            document.getElementById('modalContent').innerText = task.question;
+            document.getElementById('feedbackMsg').innerText = '';
+            document.getElementById('answerInput').value = task.studentAnswer;
 
-        function closeModal() {
-            document.getElementById('modalOverlay').style.display = 'none';
-            currentActiveTask = null;
+            if (task.status === 'correct') {
+                document.getElementById('modal-interactive-zone').style.display = 'none';
+                document.getElementById('modal-close-zone').style.display = 'block';
+                document.getElementById('feedbackMsg').className = 'feedback good';
+                document.getElementById('feedbackMsg').innerText = `Ezt a feladatot már korábban sikeresen megoldottátok! (Megadott válasz: ${task.correctAnswer})`;
+            } else {
+                document.getElementById('modal-interactive-zone').style.display = 'block';
+                document.getElementById('modal-close-zone').style.display = 'none';
+            }
+
+            document.getElementById('modalOverlay').style.display = 'flex';
         }
 
         // Válasz ellenőrzése
         function checkAnswer() {
-            if (!currentActiveTask) return;
-            
-            const inputField = document.getElementById('answerInput');
-            const studentAns = inputField.value.trim();
-            const taskData = gameState[currentActiveTask];
+            const inputVal = document.getElementById('answerInput').value.trim().toLowerCase();
+            const task = gameState[currentActiveTask];
+            const realAnswer = task.correctAnswer.trim().toLowerCase();
 
-            if (studentAns.toLowerCase() === taskData.correctAnswer.toLowerCase()) {
-                gameState[currentActiveTask].status = 'correct';
-                saveState();
-                renderGrid();
-                // AUTOMATIKUS BEZÁRÁS JÓ VÁLASZ ESETÉN
-                closeModal();
+            task.studentAnswer = document.getElementById('answerInput').value;
+
+            if (inputVal === realAnswer) {
+                task.status = 'correct';
+
+                // Kiválasztjuk a titkos üzenet megfelelő betűjét (index = állomás - 1)
+                const rewardedLetter = secretMessage[currentActiveTask - 1];
+
+                // Frissítjük a jelvényt a megnyert betűvel
+                const badge = document.getElementById(`badge-${currentActiveTask}`);
+                badge.className = 'badge correct';
+                badge.innerHTML = `${rewardedLetter}<span id="status-${currentActiveTask}">OK</span>`;
+
+                document.getElementById('feedbackMsg').className = 'feedback good';
+                document.getElementById('feedbackMsg').innerText = '🎉 Zseniális! A válasz helyes!';
+
+                updateProgress();
+
+                // AUTOMATIKUS BEZÁRÁS: 500ms után magától bezáródik a modal ablak
+                setTimeout(() => {
+                    closeModal();
+                }, 500);
+
             } else {
-                const feedback = document.getElementById('feedbackMsg');
-                feedback.textContent = "Sajnos a válasz helytelen, próbáld újra!";
-                feedback.className = "feedback wrong";
+                document.getElementById('feedbackMsg').className = 'feedback wrong';
+                document.getElementById('feedbackMsg').innerText = '❌ Nem megfelelő válasz! Próbáljátok újra.';
             }
         }
 
         // Feladat átugrása
         function skipTask() {
-            if (!currentActiveTask) return;
-            
-            gameState[currentActiveTask].status = 'skipped';
-            saveState();
-            renderGrid();
+            const task = gameState[currentActiveTask];
+            task.status = 'skipped';
+
+            if (!document.getElementById('answerInput').value.trim()) {
+                task.studentAnswer = "[Nem adott meg választ]";
+            } else {
+                task.studentAnswer = document.getElementById('answerInput').value;
+            }
+
+            document.getElementById(`badge-${currentActiveTask}`).className = 'badge skipped';
+            document.getElementById(`status-${currentActiveTask}`).innerText = 'Kihagyva';
+
             closeModal();
+            updateProgress();
         }
 
-        function saveState() {
-            localStorage.setItem('kolesz_kaland_dynamic_state', JSON.stringify(gameState));
+        function closeModal() {
+            document.getElementById('modalOverlay').style.display = 'none';
         }
 
-        // Indításkor az elmentett állás betöltése
-        window.addEventListener('DOMContentLoaded', () => {
-            renderGrid();
-        });
-    </script>
+        // Haladási pontok frissítése a fejlécben
+        function updateProgress() {
+            let scannedCount = 0;
+            for (let i = 1; i <= totalTasks; i++) {
+                if (gameState[i].scanned) scannedCount++;
+            }
+            document.getElementById('progress-text').innerText = `${scannedCount} / ${totalTasks}`;
+        }
+</script>
 </body>
 </html>
