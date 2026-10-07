@@ -320,11 +320,11 @@
 
                 updateProgress();
 
-                // AUTOMATIKUS BEZÁRÁS: 500ms után magától bezáródik a felugró ablak
+                // AUTOMATIKUS BEZÁRÁS: 1500ms után magától bezáródik a felugró ablak
                 setTimeout(() => {
                     closeModal();
                     checkGameEnd(); // Bezárás után ellenőrizzük, hogy vége van-e a játéknak
-                }, 500);
+                }, 1500);
 
             } else {
                 document.getElementById('feedbackMsg').className = 'feedback wrong';
